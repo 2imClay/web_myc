@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
-import { Container, Card, Button, ListGroup, Row, Col } from 'react-bootstrap';
+import { Container, Card, Button, ListGroup, Row, Col, Spinner } from 'react-bootstrap';
 import { useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const CartPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const [loading, setLoading] = React.useState(false);
     
     const cart = location.state?.cart;
     const products = location.state?.products;
@@ -15,6 +17,7 @@ const CartPage = () => {
 
         return Object.keys(cart).map(productId => {
             const product = products.find(p => p.id === parseInt(productId));
+            if (!product) return null;
             return {
                 ...product,
                 quantity: cart[productId]
@@ -24,10 +27,35 @@ const CartPage = () => {
 
     const totalPrice = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
 
-    const handleConfirmOrder = () => {
-        console.log("Đơn hàng gửi đi:", cartItems);
+    const handleConfirmOrder = async () => {
+        if(cartItems.length === 0) return;
+
+        setLoading(true);
+
+        const orderPayload = {
+            tableId: 1,
+            items: cartItems.map(item => ({
+                productId: item.id,
+                quantity: item.quantity,
+                note: "",
+            }))
+        };
+
+        try{
+
+            const response = await axios.post('http://localhost:8080/orders', orderPayload);
+
+            console.log("Kết quả từ Server:", response.data);
+            console.log("Đơn hàng gửi đi:", cartItems);
+            navigate('/success', {state: {orderId: response.data.id}});
+        } catch (error){
+            console.error("Lỗi khi gửi đơn hàng: ", error);
+            alert("Có lỗi xãy ra !!!");
+        } finally {
+            setLoading(false);
+        }
+
         
-        navigate('/success');
     };
 
     return (
@@ -82,8 +110,9 @@ const CartPage = () => {
                                 size="lg" 
                                 className="w-100 fw-bold"
                                 onClick={handleConfirmOrder}
+                                disabled={loading}
                             >
-                                GỬI ĐƠN BẾP
+                                {loading ? <Spinner as="span" animation="border" size="sm" /> : 'GỬI ĐƠN BẾP'}
                             </Button>
                         </Card.Body>
                     </Card>
